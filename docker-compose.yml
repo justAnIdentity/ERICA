@@ -1,0 +1,24 @@
+services:
+  erica:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: erica
+    ports:
+      - "${PORT:-3001}:3001"  # API + Web frontend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:3001}
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    # For development: uncomment to enable hot-reload
+    # volumes:
+    #   - ./src:/app/src
+    #   - ./api/src:/app/api/src
+    #   - ./web/src:/app/web/src

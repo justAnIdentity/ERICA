@@ -1,0 +1,37 @@
+{
+  "id": "pid-sd-jwt",
+  "format": "dc+sd-jwt",
+  "claims": {
+    "given_name": "Müñez",
+    "family_name": "Björgßöñ",
+    "birthdate": "1988-07-22",
+    "address": {
+      "street_address": "Strasse mit Überumlaut 99",
+      "postal_code": "20095",
+      "locality": "Köln",
+      "country": "DE"
+    },
+    "nationalities": ["DE"],
+    "gender": "M",
+    "birth_place": "Düsseldorf",
+    "birth_country": "DE",
+    "age_over_18": true,
+    "age_over_21": true
+  },
+  "selectivelyDisclosableClaims": [
+    "given_name",
+    "family_name",
+    "birthdate",
+    "address.street_address",
+    "address.postal_code",
+    "address.locality",
+    "address.country",
+    "nationalities",
+    "gender",
+    "birth_place",
+    "birth_country",
+    "age_over_18",
+    "age_over_21"
+  ],
+  "description": "PID with special characters (ß, ü, ö, ñ, etc.) for encoding edge case testing"
+}

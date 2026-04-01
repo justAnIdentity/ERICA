@@ -1,0 +1,37 @@
+{
+  "id": "pid-sd-jwt",
+  "format": "dc+sd-jwt",
+  "claims": {
+    "given_name": "Maria",
+    "family_name": "Müller",
+    "birthdate": "1985-03-15",
+    "address": {
+      "street_address": "Hauptstraße 42",
+      "postal_code": "10115",
+      "locality": "Berlin",
+      "country": "DE"
+    },
+    "nationalities": ["DE"],
+    "gender": "F",
+    "birth_place": "München",
+    "birth_country": "DE",
+    "age_over_18": true,
+    "age_over_21": true
+  },
+  "selectivelyDisclosableClaims": [
+    "given_name",
+    "family_name",
+    "birthdate",
+    "address.street_address",
+    "address.postal_code",
+    "address.locality",
+    "address.country",
+    "nationalities",
+    "gender",
+    "birth_place",
+    "birth_country",
+    "age_over_18",
+    "age_over_21"
+  ],
+  "description": "Standard German PID credential with valid data"
+}

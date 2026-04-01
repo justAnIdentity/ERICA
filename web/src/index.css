@@ -1,0 +1,330 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Modern gradient background */
+body {
+  @apply text-gray-900;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+/* Subtle animated gradient overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg,
+    rgba(102, 126, 234, 0.1) 0%,
+    rgba(118, 75, 162, 0.1) 50%,
+    rgba(236, 72, 153, 0.1) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Ensure content is above gradient */
+.app-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Enhanced validation states with colored accents */
+.validation-error {
+  @apply border-l-4 border-red-500 bg-red-50 p-3 rounded shadow-sm;
+  transition: all 0.2s ease;
+}
+
+.validation-error:hover {
+  @apply shadow-md;
+  transform: translateX(2px);
+}
+
+.validation-warning {
+  @apply border-l-4 border-amber-500 bg-amber-50 p-3 rounded shadow-sm;
+  transition: all 0.2s ease;
+}
+
+.validation-warning:hover {
+  @apply shadow-md;
+  transform: translateX(2px);
+}
+
+/* Elevated cards with better shadows */
+.step-container {
+  @apply border border-gray-100 rounded-xl p-5 mb-4 bg-white shadow-lg;
+  transition: all 0.3s ease;
+}
+
+.step-container:hover {
+  @apply shadow-xl;
+  transform: translateY(-2px);
+}
+
+.step-header {
+  @apply flex items-center justify-between pb-3 border-b border-gray-100;
+}
+
+.step-status {
+  @apply inline-flex items-center gap-2 text-sm font-medium;
+}
+
+/* Status colors with better contrast */
+.status-pass {
+  @apply text-emerald-700;
+}
+
+.status-fail {
+  @apply text-rose-700;
+}
+
+.status-warning {
+  @apply text-amber-700;
+}
+
+/* Enhanced badges with gradients */
+.badge {
+  @apply inline-block px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm;
+  transition: all 0.2s ease;
+}
+
+.badge:hover {
+  @apply shadow-md;
+  transform: scale(1.05);
+}
+
+.badge-error {
+  @apply bg-gradient-to-r from-red-100 to-red-200 text-red-800 border border-red-300;
+}
+
+.badge-warning {
+  @apply bg-gradient-to-r from-amber-100 to-amber-200 text-amber-800 border border-amber-300;
+}
+
+.badge-success {
+  @apply bg-gradient-to-r from-emerald-100 to-emerald-200 text-emerald-800 border border-emerald-300;
+}
+
+.badge-info {
+  @apply bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300;
+}
+
+/* Better code blocks */
+code {
+  @apply font-mono text-sm bg-gray-100 px-2 py-1 rounded border border-gray-200;
+}
+
+/* Card with status indicator */
+.card-success {
+  @apply bg-white border-l-4 border-emerald-500 shadow-lg rounded-xl;
+}
+
+.card-warning {
+  @apply bg-white border-l-4 border-amber-500 shadow-lg rounded-xl;
+}
+
+.card-error {
+  @apply bg-white border-l-4 border-rose-500 shadow-lg rounded-xl;
+}
+
+/* Button enhancements */
+button {
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+/* ═══════════════════════════════════════════════════════════════
+   PROFESSIONAL STATUS & SECTION STYLING
+   Replaces emoji with text labels and clean design
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Status indicator badges - minimal, professional */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.375rem 1rem;
+  border-radius: 0.375rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-left: 3px solid;
+  transition: all 0.2s ease;
+}
+
+.status-badge:hover {
+  transform: translateX(2px);
+}
+
+.status-badge--success {
+  background-color: #f0fdf4;
+  color: #16a34a;
+  border-left-color: #16a34a;
+}
+
+.status-badge--warning {
+  background-color: #fffbeb;
+  color: #ea580c;
+  border-left-color: #ea580c;
+}
+
+.status-badge--error {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border-left-color: #dc2626;
+}
+
+.status-badge--info {
+  background-color: #f0f9ff;
+  color: #0284c7;
+  border-left-color: #0284c7;
+}
+
+/* Section headers - clean, minimal */
+.section-header {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-header--accent {
+  border-bottom-color: #0284c7;
+}
+
+/* Issue card styling - replacing colored circles */
+.issue-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border-left: 3px solid;
+}
+
+.issue-card--error {
+  background-color: #fef2f2;
+  border-left-color: #dc2626;
+}
+
+.issue-card--warning {
+  background-color: #fffbeb;
+  border-left-color: #ea580c;
+}
+
+.issue-card--success {
+  background-color: #f0fdf4;
+  border-left-color: #16a34a;
+}
+
+.issue-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  font-weight: 700;
+  margin-top: 0.125rem;
+}
+
+.issue-card--error .issue-card__icon {
+  color: #dc2626;
+}
+
+.issue-card--warning .issue-card__icon {
+  color: #ea580c;
+}
+
+.issue-card--success .issue-card__icon {
+  color: #16a34a;
+}
+
+.issue-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.issue-card__title {
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.25rem;
+}
+
+.issue-card__description {
+  font-size: 0.875rem;
+  color: #4b5563;
+  margin-bottom: 0.75rem;
+}
+
+/* How-to-fix suggestion box */
+.suggestion-box {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.suggestion-box__icon {
+  flex-shrink: 0;
+  color: #0284c7;
+  font-weight: 700;
+}
+
+.suggestion-box__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.suggestion-box__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4b5563;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.suggestion-box__text {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Spec reference link */
+.spec-reference {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.spec-reference__link {
+  color: #2563eb;
+  text-decoration: underline;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.spec-reference__link:hover {
+  color: #1d4ed8;
+}
+
+.spec-reference__icon {
+  flex-shrink: 0;
+  color: #9ca3af;
+}
