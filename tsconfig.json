@@ -4,7 +4,7 @@
     "module": "ES2020",
     "lib": ["ES2020"],
     "types": ["node"],
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
@@ -18,8 +18,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "baseUrl": "./src"
+    "noFallthroughCasesInSwitch": true
   },
   "include": [
     "src/**/*"

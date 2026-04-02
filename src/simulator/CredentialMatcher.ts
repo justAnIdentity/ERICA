@@ -32,14 +32,15 @@ export class CredentialMatcher {
    * Match DCQL credentials to available PID credentials
    * @param dcqlCredentials - List of requested credentials from DCQL
    * @param simulationMode - Wallet behavior mode to determine which PID template to use
+   * @param pidTemplate - Explicit PID template override (if provided, this takes precedence over mode-based selection)
    */
-  matchCredentials(dcqlCredentials: DCQLCredential[], simulationMode: SimulationMode = SimulationMode.VALID): MatchedCredential[] {
+  matchCredentials(dcqlCredentials: DCQLCredential[], simulationMode: SimulationMode = SimulationMode.VALID, pidTemplate?: string): MatchedCredential[] {
     this.diagnostics = [];
     const matched: MatchedCredential[] = [];
 
-    // Determine which PID template to use based on simulation mode
-    const templateType = PIDTemplateLoader.getTemplateForMode(simulationMode);
-    this.addDiagnostic(`Using PID template: ${templateType}`, { simulationMode });
+    // Determine which PID template to use: explicit override takes precedence, else use mode-based selection
+    const templateType = pidTemplate ? (pidTemplate as any) : PIDTemplateLoader.getTemplateForMode(simulationMode);
+    this.addDiagnostic(`Using PID template: ${templateType}`, { simulationMode, explicitTemplate: !!pidTemplate });
 
     for (const dcqlCred of dcqlCredentials) {
       this.addDiagnostic(`Attempting to match DCQL credential: ${dcqlCred.id}`);

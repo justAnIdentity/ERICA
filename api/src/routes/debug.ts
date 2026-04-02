@@ -24,6 +24,7 @@ interface DebugRequest {
   request: any; // AuthorizationRequest from core (typed at runtime)
   validationProfile?: string;
   simulationMode?: string;
+  pidTemplate?: string; // PID template selection (normal, special-characters, incomplete-birthdate)
   postResponseToUri?: boolean;
   preferredFormat?: "dc+sd-jwt" | "mso_mdoc"; // Format preference for credential_sets selection
 }
@@ -133,7 +134,8 @@ router.post("/debug", async (req: Request<{}, DebugResponse, DebugRequest>, res:
     const {
       request: authRequest,
       validationProfile = "pid-presentation",
-      simulationMode = "COMPLIANT",
+      simulationMode = "VALID",
+      pidTemplate = "normal",
       postResponseToUri = false,
       preferredFormat = "dc+sd-jwt",
     } = req.body;
@@ -154,6 +156,7 @@ router.post("/debug", async (req: Request<{}, DebugResponse, DebugRequest>, res:
       postResponseToUri,
       validationProfile,
       simulationMode,
+      pidTemplate,
     });
 
     // Load runtime and core types
@@ -168,14 +171,15 @@ router.post("/debug", async (req: Request<{}, DebugResponse, DebugRequest>, res:
     const profileEnum =
       Object.values(Profile).includes(validationProfile) ? validationProfile : Profile.PID_PRESENTATION;
     const simulationModeEnum =
-      Object.values(SimulationMode).includes(simulationMode) ? simulationMode : SimulationMode.COMPLIANT;
+      Object.values(SimulationMode).includes(simulationMode) ? simulationMode : SimulationMode.VALID;
 
     const session = await vpDebugger.debug(
       authRequest,
       profileEnum,
       simulationModeEnum,
       postResponseToUri,
-      preferredFormat
+      preferredFormat,
+      pidTemplate
     );
 
     return res.json({

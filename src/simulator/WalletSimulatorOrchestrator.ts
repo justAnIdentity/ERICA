@@ -33,9 +33,10 @@ export class WalletSimulatorOrchestrator {
   static async simulate(
     dcqlCredentials: DCQLCredential[],
     state?: string,
-    mode: SimulationMode = SimulationMode.COMPLIANT,
+    mode: SimulationMode = SimulationMode.VALID,
     nonce?: string,
-    audience?: string
+    audience?: string,
+    pidTemplate: string = "normal"
   ): Promise<OrchestrationResult> {
     const diagnosticsAggregator = new WalletSimulatorDiagnostics();
 
@@ -47,7 +48,7 @@ export class WalletSimulatorOrchestrator {
 
       // Step 3: Generate PID credentials matching DCQL
       const matcher = new CredentialMatcher();
-      const matchedCredentials = matcher.matchCredentials(dcqlCredentials, mode);
+      const matchedCredentials = matcher.matchCredentials(dcqlCredentials, mode, pidTemplate);
       diagnosticsAggregator.registerComponent(
         "CredentialMatcher",
         "Credential Matching",

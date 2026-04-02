@@ -23,6 +23,7 @@ export interface WalletSimulatorOptions {
   customCredentials?: Record<string, unknown>;
   postResponseToUri?: boolean; // If true, POST response to response_uri
   preferredFormat?: "dc+sd-jwt" | "mso_mdoc"; // Format preference when multiple options available (default: dc+sd-jwt)
+  pidTemplate?: string; // PID template to use (default: "normal", options: "normal", "special-characters", "incomplete-birthdate")
   // useCache?: boolean; // FUTURE: Enable PID caching (default: false for security)
 }
 
@@ -64,7 +65,8 @@ export class WalletSimulator implements IWalletSimulator {
       request.state,
       options.mode,
       nonce,
-      audience
+      audience,
+      options.pidTemplate || "normal"
     );
 
     if (!result.success) {

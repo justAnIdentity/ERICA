@@ -32,10 +32,10 @@ The tool is organized into modular components:
 
 - **`validators/`** - Presentation Request & Response validators
 - **`simulator/`** - Wallet behavior simulator (compliant and faulty modes)
-- **`formats/`** - Pluggable credential format adapters (JWT, SD-JWT, mDoc)
-- **`profiles/`** - Profile plugins (OpenID4VP base, EUDI ARF, etc.)
+- **`profiles/`** - Validation profiles (OpenID4VP base, PID Presentation, etc.)
 - **`explainability/`** - Diagnostic event collection and spec reference mapping
 - **`types/`** - Shared TypeScript interfaces and enums
+- **`utils/`** - Utilities including claim mapping and logging
 
 ### Key Components
 
@@ -129,23 +129,10 @@ console.log(session.diagnostics);
 
 ## Extensibility
 
-### Adding a Custom Credential Format
-
-```typescript
-class CustomFormatAdapter implements ICredentialFormatAdapter {
-  formatId = "custom-format";
-  // Implement interface methods...
-}
-
-formatRegistry.register(new CustomFormatAdapter());
-```
-
-See [docs/EXTENDING_PROFILES.md](docs/EXTENDING_PROFILES.md) [Phase 2] for detailed guide.
-
 ### Adding a Custom Profile
 
 ```typescript
-class CustomProfile implements IProfilePlugin {
+class CustomProfile implements IValidationProfile {
   profileId = "custom";
   // Implement interface methods...
 }

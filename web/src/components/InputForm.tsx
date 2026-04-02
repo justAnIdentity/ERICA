@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { DebuggerSession, Profile, SimulationMode } from "../types.js";
+import { DebuggerSession, Profile, SimulationMode, PIDTemplate } from "../types.js";
 import { apiClient } from "../api/client.js";
 
 interface InputFormProps {
@@ -196,7 +196,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
   const [requestJson, setRequestJson] = useState(JSON.stringify(createDefaultRequest(), null, 2));
   const [requestUrl, setRequestUrl] = useState('');
   const [profile, setProfile] = useState<Profile>(Profile.PID_PRESENTATION);
-  const [simulationMode, setSimulationMode] = useState<SimulationMode>(SimulationMode.COMPLIANT);
+  const [simulationMode, setSimulationMode] = useState<SimulationMode>(SimulationMode.VALID);
+  const [pidTemplate, setPidTemplate] = useState<PIDTemplate>(PIDTemplate.NORMAL);
   const [preferredFormat, setPreferredFormat] = useState<'dc+sd-jwt' | 'mso_mdoc'>('dc+sd-jwt');
   const [validateOnly, setValidateOnly] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -239,6 +240,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
         request,
         validationProfile: profile,
         simulationMode,
+        pidTemplate,
         postResponseToUri: inputMode === 'url' && !validateOnly,
         preferredFormat,
       });
@@ -403,7 +405,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
 
                 <div>
                   <label htmlFor="simulation-mode" className="block text-sm font-medium text-gray-700 mb-2">
-                    Wallet Behavior
+                    Wallet Behavior / Simulation Mode
                   </label>
                   <select
                     id="simulation-mode"
@@ -411,15 +413,59 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
                     onChange={(e) => setSimulationMode(e.target.value as SimulationMode)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                   >
-                    <option value={SimulationMode.COMPLIANT}>Compliant Wallet</option>
-                    <option value={SimulationMode.INVALID_SIGNATURE}>Invalid Signature</option>
-                    <option value={SimulationMode.EXPIRED_VC}>Expired Credential</option>
-                    <option value={SimulationMode.MISSING_FIELDS}>Missing Fields</option>
+                    <optgroup label="Compliant">
+                      <option value={SimulationMode.VALID}>✓ Valid / Compliant Wallet</option>
+                    </optgroup>
+                    <optgroup label="Credential Validity">
+                      <option value={SimulationMode.EXPIRED}>Expired Credential (exp in past)</option>
+                      <option value={SimulationMode.NOT_YET_VALID}>Not-Yet-Valid (nbf in future)</option>
+                    </optgroup>
+                    <optgroup label="Signature Issues">
+                      <option value={SimulationMode.INVALID_SIGNATURE}>Invalid Signature</option>
+                      <option value={SimulationMode.MISSING_SIGNATURE}>Missing Signature</option>
+                    </optgroup>
+                    <optgroup label="Claim Issues">
+                      <option value={SimulationMode.MISSING_CLAIMS}>Missing Claims</option>
+                      <option value={SimulationMode.OVER_DISCLOSURE}>Over-Disclosure</option>
+                      <option value={SimulationMode.MODIFIED_CLAIMS}>Modified Claims</option>
+                    </optgroup>
+                    <optgroup label="Binding Issues">
+                      <option value={SimulationMode.WRONG_NONCE}>Wrong Nonce</option>
+                      <option value={SimulationMode.MISSING_HOLDER_BINDING}>Missing Holder Binding</option>
+                      <option value={SimulationMode.WRONG_AUDIENCE}>Wrong Audience</option>
+                    </optgroup>
+                    <optgroup label="Format Issues">
+                      <option value={SimulationMode.FORMAT_MISMATCH}>Format Mismatch</option>
+                      <option value={SimulationMode.MALFORMED_SD_JWT}>Malformed SD-JWT</option>
+                    </optgroup>
+                    <optgroup label="Issuer Issues">
+                      <option value={SimulationMode.WRONG_ISSUER}>Wrong Issuer</option>
+                      <option value={SimulationMode.WRONG_CREDENTIAL_TYPE}>Wrong Credential Type</option>
+                    </optgroup>
                   </select>
                   <p className="text-xs text-gray-600 mt-1">
-                    Test how your RP handles different wallet behaviors
+                    Test how your RP handles different wallet behaviors and error conditions
                   </p>
                 </div>
+              </div>
+
+              <div>
+                <label htmlFor="pid-template" className="block text-sm font-medium text-gray-700 mb-2">
+                  PID Template / Data Variant
+                </label>
+                <select
+                  id="pid-template"
+                  value={pidTemplate}
+                  onChange={(e) => setPidTemplate(e.target.value as PIDTemplate)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  <option value={PIDTemplate.NORMAL}>📄 Normal (standard German names)</option>
+                  <option value={PIDTemplate.SPECIAL_CHARACTERS}>✎ Special Characters (ß, ü, ö, ñ, etc.)</option>
+                  <option value={PIDTemplate.INCOMPLETE_BIRTHDATE}>⚠ Incomplete Birthdate (invalid format)</option>
+                </select>
+                <p className="text-xs text-gray-600 mt-1">
+                  Choose different PID data variants to test edge cases and special character handling
+                </p>
               </div>
 
               <div>

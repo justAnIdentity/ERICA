@@ -42,9 +42,10 @@ export class EudiVpDebugger {
   async debug(
     request: AuthorizationRequest,
     validationProfile: Profile = Profile.PID_PRESENTATION,
-    simulationMode: SimulationMode = SimulationMode.COMPLIANT,
+    simulationMode: SimulationMode = SimulationMode.VALID,
     postResponseToUri: boolean = false,
-    preferredFormat: "dc+sd-jwt" | "mso_mdoc" = "dc+sd-jwt"
+    preferredFormat: "dc+sd-jwt" | "mso_mdoc" = "dc+sd-jwt",
+    pidTemplate: string = "normal"
   ): Promise<DebuggerSession> {
     // 1. Validate presentation request with the selected profile
     const requestValidation = await this.requestValidator.validate(
@@ -58,6 +59,7 @@ export class EudiVpDebugger {
       credentialSource: "TEMPLATE",
       postResponseToUri,
       preferredFormat,
+      pidTemplate,
     });
 
     // 3. Validate presentation response (as RP would)

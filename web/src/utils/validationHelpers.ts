@@ -27,9 +27,10 @@ export interface PlainEnglishIssue {
   title: string;
   description: string;
   specReference?: {
-    name: string;
-    url: string;
+    spec: string;
+    url?: string;
     section?: string;
+    quotation?: string;
   };
   howToFix?: string;
 }
@@ -67,9 +68,10 @@ export function convertToPlainEnglishIssues(
  * Parse spec reference string into structured format
  */
 function parseSpecReference(ref: any): {
-  name: string;
-  url: string;
+  spec: string;
+  url?: string;
   section?: string;
+  quotation?: string;
 } {
   // Convert to string if it's not already
   const refString = typeof ref === 'string' ? ref : String(ref || '');
@@ -77,29 +79,28 @@ function parseSpecReference(ref: any): {
   // Handle common spec reference formats
   if (refString.includes("OpenID4VP")) {
     return {
-      name: "OpenID4VP",
+      spec: "OpenID4VP-Core",
       url: "https://openid.net/specs/openid-4-verifiable-presentations-1_0.html",
       section: extractSection(refString),
     };
   }
   if (refString.includes("HAIP")) {
     return {
-      name: "EUDI HAIP",
+      spec: "OpenID4VP-HAIP",
       url: "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-ID1.html",
       section: extractSection(refString),
     };
   }
   if (refString.includes("SD-JWT")) {
     return {
-      name: "SD-JWT",
+      spec: "SD-JWT-VC",
       url: "https://datatracker.ietf.org/doc/draft-ietf-oauth-selective-disclosure-jwt/",
       section: extractSection(refString),
     };
   }
 
   return {
-    name: refString,
-    url: "#",
+    spec: refString,
   };
 }
 
