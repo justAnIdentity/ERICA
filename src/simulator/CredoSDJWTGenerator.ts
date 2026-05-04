@@ -10,6 +10,7 @@ import { SimulationMode } from "../types/index.js";
 import { PIDClaims, generateFakePIDData, filterRequestedClaims, generateExpiredPIDData, generateNotYetValidPIDData, generateIncompletePIDData, addExtraClaims } from "./FakePIDData.js";
 import { ISSUER_KEY, HOLDER_KEY, ISSUER_DID, HOLDER_DID, INVALID_SIGNATURE_KEY } from "./TestKeys.js";
 import { SimulationModeHandler } from "./SimulationModeHandler.js";
+import { CertificateManager } from "../security/CertificateManager.js";
 
 export interface SDJWTGenerationOptions {
   mode: SimulationMode;
@@ -111,12 +112,31 @@ export class CredoSDJWTGenerator {
     const expiresAt = metadata.expiresAt;
     const notBefore = metadata.notBefore;
 
-    // Build JWT header
-    const header = {
+    // Get x5c certificate chain (if available)
+    // NOTE: This is the PID ISSUER certificate (NOT the RP's Access Certificate)
+    // - These certificates sign the PID credential during ISSUANCE
+    // - In production, these would be government-issued signer certificates (NEVER public)
+    // - For this debugger, CertificateManager generates test-only certificates at runtime
+    // - CRITICAL: These issuer certs sign credentials. RPs present Access Certificates (different)
+    let x5c: string[] | undefined;
+    try {
+      const certManager = CertificateManager.getInstance();
+      x5c = certManager.getX5c();
+    } catch (e) {
+      // CertificateManager not initialized - will use JWK-based signing
+      x5c = undefined;
+    }
+
+    // Build JWT header with optional x5c
+    const header: any = {
       alg: "ES256",
       typ: "vc+sd-jwt",
       kid: ISSUER_KEY.publicKeyJwk.kid,
     };
+
+    if (x5c && x5c.length > 0) {
+      header.x5c = x5c;
+    }
 
     // Handle issuer based on simulation mode
     const issuer = SimulationModeHandler.getIssuerForMode(options.mode, ISSUER_DID);

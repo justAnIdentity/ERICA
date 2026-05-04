@@ -8,6 +8,9 @@
  */
 
 import { AuthorizationRequest, ValidationCheck, Severity } from "../types/index.js";
+import { URLValidator } from "../security/URLValidator.js";
+import { TrustListManager } from "../security/TrustListManager.js";
+import * as crypto from "crypto";
 
 export interface URLParseResult {
   success: boolean;
@@ -67,6 +70,9 @@ export class PresentationRequestURLParser {
 
       const searchParams = parsedUrl.searchParams;
 
+      // Extract client_id from URL query params (if present) for validation
+      const urlClientId = searchParams.get('client_id') || undefined;
+
       // Check for request_uri (request by reference)
       if (searchParams.has('request_uri')) {
         const requestUriCheck = this.createCheck(
@@ -79,7 +85,7 @@ export class PresentationRequestURLParser {
         checks.push(requestUriCheck);
 
         const requestUri = searchParams.get('request_uri')!;
-        const result = await this.fetchRequestObject(requestUri, checks);
+        const result = await this.fetchRequestObject(requestUri, checks, urlClientId);
 
         if (result.success && result.request) {
           return {
@@ -108,7 +114,7 @@ export class PresentationRequestURLParser {
         checks.push(requestParamCheck);
 
         const requestJwt = searchParams.get('request')!;
-        const result = await this.parseRequestJWT(requestJwt, checks);
+        const result = await this.parseRequestJWT(requestJwt, checks, urlClientId);
 
         if (result.success && result.request) {
           return {
@@ -203,37 +209,20 @@ export class PresentationRequestURLParser {
   /**
    * Fetch request object from request_uri
    */
-  private async fetchRequestObject(requestUri: string, checks: ValidationCheck[]): Promise<{ success: boolean; request?: AuthorizationRequest; errors?: string[] }> {
+  private async fetchRequestObject(requestUri: string, checks: ValidationCheck[], urlClientId?: string): Promise<{ success: boolean; request?: AuthorizationRequest; errors?: string[] }> {
     const errors: string[] = [];
 
     try {
-      // Validate request_uri is HTTPS
-      if (!requestUri.startsWith('https://')) {
-        checks.push({
-          checkId: "url.request_uri.https",
-          checkName: "Request URI HTTPS",
-          passed: false,
-          category: "Security",
-          severity: Severity.ERROR,
-          issue: "request_uri must use HTTPS",
-          suggestedFix: "Use HTTPS for request_uri to ensure secure transmission",
-          specReference: {
-            spec: "OpenID4VP",
-            section: "6.1",
-            url: "https://openid.net/specs/openid-4-verifiable-presentations-1_0.html#name-passing-authorization-reque",
-          },
-        });
-        errors.push("request_uri must use HTTPS");
+      // SSRF Protection: Validate URL before fetching
+      const urlValidation = await URLValidator.validate(requestUri, false);
+
+      // Add all validation checks from URLValidator
+      checks.push(...urlValidation.checks);
+
+      if (!urlValidation.valid) {
+        errors.push(...urlValidation.errors);
         return { success: false, errors };
       }
-
-      checks.push(this.createCheck(
-        "url.request_uri.https",
-        "Request URI HTTPS",
-        true,
-        "Security",
-        "request_uri uses HTTPS"
-      ));
 
       // Fetch the JWT from the request_uri
       try {
@@ -291,7 +280,7 @@ export class PresentationRequestURLParser {
         }
 
         // Parse the JWT
-        const parseResult = await this.parseRequestJWT(jwtString.trim(), checks);
+        const parseResult = await this.parseRequestJWT(jwtString.trim(), checks, urlClientId);
         return parseResult;
 
       } catch (fetchError) {
@@ -325,7 +314,7 @@ export class PresentationRequestURLParser {
   /**
    * Parse JWT from request parameter
    */
-  private async parseRequestJWT(jwt: string, checks: ValidationCheck[]): Promise<{ success: boolean; request?: AuthorizationRequest; errors?: string[] }> {
+  private async parseRequestJWT(jwt: string, checks: ValidationCheck[], urlClientId?: string): Promise<{ success: boolean; request?: AuthorizationRequest; errors?: string[] }> {
     const errors: string[] = [];
 
     try {
@@ -394,16 +383,136 @@ export class PresentationRequestURLParser {
           "JWT payload successfully decoded"
         ));
 
-        // Note: Signature verification would happen here in production
-        checks.push({
-          checkId: "url.request_jwt.signature",
-          checkName: "Request JWT Signature Verification",
-          passed: false,
-          category: "Security",
-          severity: Severity.WARNING,
-          issue: "JWT signature verification not yet implemented in this debugger",
-          suggestedFix: "Implement signature verification using client_metadata.jwks",
-        });
+        // Validate client_id consistency between URL and JWT payload
+        if (urlClientId && payload.client_id) {
+          const jwtClientId = payload.client_id;
+          if (urlClientId === jwtClientId) {
+            checks.push({
+              checkId: "semantics.client_id.url_jwt_match",
+              checkName: "Client ID Consistency",
+              passed: true,
+              category: "Semantics",
+              subcategory: "Client Identification",
+              severity: Severity.WARNING,
+              details: `client_id matches between URL (${urlClientId}) and JWT payload`,
+            });
+          } else {
+            checks.push({
+              checkId: "semantics.client_id.url_jwt_match",
+              checkName: "Client ID Consistency",
+              passed: false,
+              category: "Semantics",
+              subcategory: "Client Identification",
+              severity: Severity.ERROR,
+              issue: `client_id mismatch: URL has '${urlClientId}' but JWT payload has '${jwtClientId}'`,
+              suggestedFix: "Ensure client_id in URL matches client_id in request JWT payload",
+              specReference: {
+                spec: "OpenID4VP",
+                section: "5.1",
+                url: "https://openid.net/specs/openid-4-verifiable-presentations-1_0.html",
+              },
+            });
+            errors.push(`client_id mismatch between URL and JWT payload`);
+            return { success: false, errors };
+          }
+        } else if (urlClientId && !payload.client_id) {
+          checks.push({
+            checkId: "semantics.client_id.jwt_missing",
+            checkName: "Client ID in JWT",
+            passed: false,
+            category: "Semantics",
+            subcategory: "Client Identification",
+            severity: Severity.WARNING,
+            issue: `client_id present in URL (${urlClientId}) but missing from JWT payload`,
+            suggestedFix: "Include client_id in JWT payload when present in URL",
+          });
+        } else if (!urlClientId && payload.client_id) {
+          checks.push({
+            checkId: "semantics.client_id.url_missing",
+            checkName: "Client ID in URL",
+            passed: true,
+            category: "Semantics",
+            subcategory: "Client Identification",
+            severity: Severity.WARNING,
+            details: `client_id found in JWT payload (${payload.client_id}) but not in URL query parameters`,
+          });
+        }
+
+        // JWT Signature Verification (when x5c is present)
+        if (header.x5c && Array.isArray(header.x5c) && header.x5c.length > 0) {
+          try {
+            // Extract Access Certificate (first cert in x5c)
+            const accessCertB64 = header.x5c[0];
+            const certDer = Buffer.from(accessCertB64, 'base64');
+
+            // Create PEM certificate
+            const certPem = `-----BEGIN CERTIFICATE-----\n${accessCertB64.match(/.{1,64}/g)?.join('\n')}\n-----END CERTIFICATE-----`;
+
+            // Extract public key from certificate
+            const x509 = new (await import('crypto')).X509Certificate(certPem);
+            const publicKeyPem = x509.publicKey.export({ type: 'spki', format: 'pem' });
+
+            // Verify JWT signature using public key from certificate
+            const [headerB64, payloadB64, signatureB64] = parts;
+            const message = `${headerB64}.${payloadB64}`;
+            const signature = Buffer.from(signatureB64, 'base64url');
+
+            // Import public key
+            const publicKey = crypto.createPublicKey(publicKeyPem);
+
+            // Verify signature (ES256 uses SHA-256)
+            const verify = crypto.createVerify('SHA256');
+            verify.update(message);
+            verify.end();
+
+            const isValid = verify.verify({
+              key: publicKey,
+              dsaEncoding: 'ieee-p1363' // ES256 uses raw signature format
+            }, signature);
+
+            if (isValid) {
+              checks.push({
+                checkId: "url.request_jwt.signature",
+                checkName: "Request JWT Signature Verification",
+                passed: true,
+                category: "Security",
+                severity: Severity.WARNING,
+                details: "JWT signature verified successfully using public key from x5c certificate",
+              });
+            } else {
+              checks.push({
+                checkId: "url.request_jwt.signature",
+                checkName: "Request JWT Signature Verification",
+                passed: false,
+                category: "Security",
+                severity: Severity.ERROR,
+                issue: "JWT signature verification failed - signature does not match",
+                suggestedFix: "Ensure JWT is signed with the private key corresponding to the x5c certificate",
+              });
+            }
+          } catch (error) {
+            checks.push({
+              checkId: "url.request_jwt.signature",
+              checkName: "Request JWT Signature Verification",
+              passed: false,
+              category: "Security",
+              severity: Severity.WARNING,
+              issue: `JWT signature verification error: ${error instanceof Error ? error.message : String(error)}`,
+              suggestedFix: "Check JWT algorithm and certificate public key format",
+            });
+          }
+        } else {
+          // No x5c - cannot verify signature
+          checks.push({
+            checkId: "url.request_jwt.signature",
+            checkName: "Request JWT Signature Verification",
+            passed: false,
+            category: "Security",
+            severity: Severity.WARNING,
+            issue: "Cannot verify JWT signature - no x5c certificate provided",
+            suggestedFix: "Include x5c parameter in JWT header with RP's Access Certificate",
+          });
+        }
 
         return { success: true, request: payload as AuthorizationRequest };
 
@@ -665,16 +774,84 @@ export class PresentationRequestURLParser {
         }
       }
 
-      // Note: Trust anchor validation would require external trust list
-      checks.push({
-        checkId: "url.request_jwt.x5c_trust_anchor",
-        checkName: "Trust Anchor Validation",
-        passed: false,
-        category: "Security",
-        severity: Severity.WARNING,
-        issue: "Trust anchor validation not implemented - requires configured trust list",
-        suggestedFix: "Configure trust list with authorized RP certificates for production use",
-      });
+      // Validate Access Certificate against trust list (EUDI Registrar validation)
+      if (x5c && x5c.length > 0) {
+        try {
+          const trustListManager = TrustListManager.getInstance();
+          const accessCertB64 = x5c[0]; // First certificate is the Access Certificate
+          const validationResult = await trustListManager.validateAccessCertificate(accessCertB64);
+
+          if (validationResult.valid && validationResult.trusted && !validationResult.expired) {
+            // Certificate is valid, trusted by a Registrar, and not expired
+            checks.push({
+              checkId: "url.request_jwt.x5c_trust_anchor",
+              checkName: "Trust Anchor Validation",
+              passed: true,
+              category: "Security",
+              severity: Severity.WARNING,
+              details: validationResult.registrar
+                ? `Validated by Registrar: ${validationResult.registrar.organization} (${validationResult.registrar.serviceType})`
+                : "Access Certificate validated successfully",
+            });
+          } else if (validationResult.expired) {
+            // Certificate is expired
+            checks.push({
+              checkId: "url.request_jwt.x5c_trust_anchor",
+              checkName: "Trust Anchor Validation",
+              passed: false,
+              category: "Security",
+              severity: Severity.ERROR,
+              issue: "Access Certificate has expired",
+              details: validationResult.errors.join(", "),
+            });
+          } else if (!validationResult.trusted) {
+            // Certificate is not trusted by any Registrar
+            checks.push({
+              checkId: "url.request_jwt.x5c_trust_anchor",
+              checkName: "Trust Anchor Validation",
+              passed: false,
+              category: "Security",
+              severity: Severity.WARNING,
+              issue: "Access Certificate not trusted by any Registrar in trust list",
+              details: validationResult.errors.join(", "),
+              suggestedFix: "Ensure the RP's Access Certificate is signed by a trusted Registrar",
+            });
+          } else {
+            // Other validation failure
+            checks.push({
+              checkId: "url.request_jwt.x5c_trust_anchor",
+              checkName: "Trust Anchor Validation",
+              passed: false,
+              category: "Security",
+              severity: Severity.ERROR,
+              issue: "Access Certificate validation failed",
+              details: validationResult.errors.join(", "),
+            });
+          }
+        } catch (error) {
+          // Trust list validation error
+          checks.push({
+            checkId: "url.request_jwt.x5c_trust_anchor",
+            checkName: "Trust Anchor Validation",
+            passed: false,
+            category: "Security",
+            severity: Severity.WARNING,
+            issue: `Trust list validation error: ${error instanceof Error ? error.message : String(error)}`,
+            suggestedFix: "Check that trust list is properly initialized",
+          });
+        }
+      } else {
+        // No x5c provided - cannot validate trust anchor
+        checks.push({
+          checkId: "url.request_jwt.x5c_trust_anchor",
+          checkName: "Trust Anchor Validation",
+          passed: false,
+          category: "Security",
+          severity: Severity.WARNING,
+          issue: "No x5c certificate chain provided - cannot validate trust anchor",
+          suggestedFix: "Include x5c parameter in JWT header with RP's Access Certificate",
+        });
+      }
 
     } catch (error) {
       checks.push({

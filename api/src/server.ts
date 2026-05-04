@@ -36,10 +36,26 @@ app.get("*", (_req, res) => {
   res.sendFile(path.join(publicPath, "index.html"));
 });
 
-// Start server
-app.listen(PORT, () => {
-  logger.info(`EUDI VP Debugger API started`, {
-    port: PORT,
-    debugEndpoint: `/api/debug`,
-  });
-});
+// Initialize runtime and start server
+async function startServer() {
+  try {
+    // Initialize certificate infrastructure
+    const runtimePath = path.resolve(__dirname, "../../dist/runtime.js");
+    const runtime = await import(runtimePath);
+    await runtime.initializeRuntime();
+
+    // Start server
+    app.listen(PORT, () => {
+      logger.info(`EUDI VP Debugger API started`, {
+        port: PORT,
+        debugEndpoint: `/api/debug`,
+        certificateInfrastructure: "initialized",
+      });
+    });
+  } catch (error) {
+    logger.error("Failed to start server", error instanceof Error ? error : new Error(String(error)));
+    process.exit(1);
+  }
+}
+
+startServer();

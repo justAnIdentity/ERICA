@@ -27,6 +27,7 @@ interface DebugRequest {
   pidTemplate?: string; // PID template selection (normal, special-characters, incomplete-birthdate)
   postResponseToUri?: boolean;
   preferredFormat?: "dc+sd-jwt" | "mso_mdoc"; // Format preference for credential_sets selection
+  urlParsingChecks?: any[]; // Optional ValidationCheck[] from URL parsing
 }
 
 interface DebugResponse {
@@ -138,6 +139,7 @@ router.post("/debug", async (req: Request<{}, DebugResponse, DebugRequest>, res:
       pidTemplate = "normal",
       postResponseToUri = false,
       preferredFormat = "dc+sd-jwt",
+      urlParsingChecks = [],
     } = req.body;
 
     // Validate input
@@ -157,6 +159,7 @@ router.post("/debug", async (req: Request<{}, DebugResponse, DebugRequest>, res:
       validationProfile,
       simulationMode,
       pidTemplate,
+      urlParsingChecks: urlParsingChecks.length,
     });
 
     // Load runtime and core types
@@ -182,6 +185,33 @@ router.post("/debug", async (req: Request<{}, DebugResponse, DebugRequest>, res:
       pidTemplate
     );
 
+    // Merge URL parsing checks into request validation checks
+    if (urlParsingChecks && urlParsingChecks.length > 0) {
+      session.requestValidation.checks = [
+        ...urlParsingChecks,
+        ...session.requestValidation.checks,
+      ];
+
+      // Update validation summary if it exists
+      if (session.requestValidation.summary) {
+        const urlPassedCount = urlParsingChecks.filter((c: any) => c.passed).length;
+        const urlFailedCount = urlParsingChecks.length - urlPassedCount;
+        const urlErrorCount = urlParsingChecks.filter((c: any) => !c.passed && c.severity === "ERROR").length;
+        const urlWarningCount = urlParsingChecks.filter((c: any) => !c.passed && c.severity === "WARNING").length;
+
+        session.requestValidation.summary.totalChecks += urlParsingChecks.length;
+        session.requestValidation.summary.passedChecks += urlPassedCount;
+        session.requestValidation.summary.failedChecks += urlFailedCount;
+        session.requestValidation.summary.errorCount += urlErrorCount;
+        session.requestValidation.summary.warningCount += urlWarningCount;
+      }
+
+      logger.debug("[Debug API] Merged URL parsing checks", {
+        urlChecks: urlParsingChecks.length,
+        totalChecks: session.requestValidation.checks.length,
+      });
+    }
+
     return res.json({
       success: true,
       data: session,
@@ -192,6 +222,160 @@ router.post("/debug", async (req: Request<{}, DebugResponse, DebugRequest>, res:
       success: false,
       error: {
         message: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      },
+    });
+  }
+});
+
+/**
+ * Trust List endpoint
+ * GET /api/trust-list
+ *
+ * Returns the list of trusted Registrar certificates from the EUDI trust list
+ */
+router.get("/trust-list", async (req: Request, res: Response) => {
+  try {
+    const runtime = await loadRuntime();
+    const coreModule: any = await import(indexPath);
+    const { TrustListManager } = coreModule;
+
+    const trustListManager = TrustListManager.getInstance();
+    const trustedVerifiers = trustListManager.getTrustedVerifiers();
+
+    return res.json({
+      success: true,
+      data: {
+        count: trustedVerifiers.length,
+        verifiers: trustedVerifiers.map(v => ({
+          commonName: v.commonName,
+          organization: v.organization,
+          country: v.country,
+          fingerprint: v.fingerprint,
+          validFrom: v.validFrom,
+          validTo: v.validTo,
+          serviceType: v.serviceType,
+        })),
+      },
+    });
+  } catch (error) {
+    logger.error("Trust list endpoint error", error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Failed to retrieve trust list",
+        details: error instanceof Error ? error.message : String(error),
+      },
+    });
+  }
+});
+
+/**
+ * Trust Anchor endpoint
+ * GET /api/trust-anchor
+ *
+ * Returns the root CA certificate for users to add to their verifiers
+ */
+router.get("/trust-anchor", async (req: Request, res: Response) => {
+  try {
+    // Load runtime
+    const runtime = await loadRuntime();
+    const coreModule: any = await import(indexPath);
+    const { CertificateManager } = coreModule;
+
+    const certManager = CertificateManager.getInstance();
+    const trustAnchor = certManager.getTrustAnchor();
+
+    // Determine response format based on Accept header or query param
+    const format = req.query.format || 'pem';
+
+    if (format === 'der') {
+      res.setHeader('Content-Type', 'application/x-x509-ca-cert');
+      res.setHeader('Content-Disposition', 'attachment; filename="eudi-vp-debugger-root-ca.crt"');
+      return res.send(trustAnchor.der);
+    } else {
+      // Default to PEM
+      res.setHeader('Content-Type', 'application/x-pem-file');
+      res.setHeader('Content-Disposition', 'attachment; filename="eudi-vp-debugger-root-ca.pem"');
+      return res.send(trustAnchor.pem);
+    }
+  } catch (error) {
+    logger.error("Trust anchor endpoint error", error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Failed to retrieve trust anchor",
+        details: error instanceof Error ? error.message : String(error),
+      },
+    });
+  }
+});
+
+/**
+ * Issuer Trust Anchor endpoint
+ * GET /api/issuer/trust-anchor
+ *
+ * Returns the PID issuer's public certificate for RPs to add to their test trust lists
+ * ⚠️ WARNING: This is a TEST ONLY certificate - do not use in production
+ */
+router.get("/issuer/trust-anchor", async (req: Request, res: Response) => {
+  try {
+    const runtime = await loadRuntime();
+    const coreModule: any = await import(indexPath);
+    const { CertificateManager } = coreModule;
+
+    const certManager = CertificateManager.getInstance();
+    const trustAnchor = certManager.getTrustAnchor();
+
+    // Get certificate details for display
+    const chain = certManager.getCertificateChain();
+    const cert = chain.rootCA.cert;
+
+    // Extract subject details
+    let commonName = "Unknown";
+    let organization = "Unknown";
+    let country = "Unknown";
+
+    for (const rdn of cert.subject.typesAndValues) {
+      if (rdn.type === "2.5.4.3") commonName = (rdn.value as any).valueBlock.value;
+      if (rdn.type === "2.5.4.10") organization = (rdn.value as any).valueBlock.value;
+      if (rdn.type === "2.5.4.6") country = (rdn.value as any).valueBlock.value;
+    }
+
+    return res.json({
+      success: true,
+      warning: "⚠️ TEST ONLY - DO NOT USE IN PRODUCTION",
+      data: {
+        certificate: {
+          pem: trustAnchor.pem,
+          der: trustAnchor.der.toString("base64"),
+          format: "X.509",
+        },
+        details: {
+          commonName,
+          organization,
+          country,
+          validFrom: cert.notBefore.value.toISOString(),
+          validTo: cert.notAfter.value.toISOString(),
+          algorithm: "ES256 (P-256)",
+        },
+        usage: {
+          purpose: "PID Issuer Certificate for EUDI VP Debugger Wallet Simulator",
+          instructions: [
+            "Download this certificate and add it to your RP's test trust list",
+            "Configure your RP to trust this issuer (test environment only)",
+            "Verify PIDs from the wallet simulator using this certificate",
+            "⚠️ NEVER use this certificate in production environments",
+          ],
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Issuer trust anchor endpoint error", error instanceof Error ? error : new Error(String(error)));
+    return res.status(500).json({
+      success: false,
+      error: {
+        message: "Failed to retrieve issuer trust anchor",
         details: error instanceof Error ? error.message : String(error),
       },
     });

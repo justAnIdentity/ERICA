@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "npm run build:core && npm run build:api && npm run build:web",
-    "build:core": "tsc",
+    "build:core": "tsc && mkdir -p dist/security/trustlist dist/security/issuer && cp src/security/trustlist/* dist/security/trustlist/ && cp src/security/issuer/*.pem dist/security/issuer/",
     "build:api": "cd api && npm run build",
     "build:web": "cd web && npm run build",
     "dev": "npm run dev:core & npm run dev:api & npm run dev:web",
@@ -35,7 +35,9 @@
     "@credo-ts/core": "^0.6.2",
     "@credo-ts/node": "^0.6.2",
     "@credo-ts/openid4vc": "^0.6.2",
-    "jose": "^6.1.3"
+    "asn1js": "^3.0.10",
+    "jose": "^6.1.3",
+    "pkijs": "^3.4.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.37",

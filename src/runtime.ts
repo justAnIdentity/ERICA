@@ -8,6 +8,22 @@
 
 import { EudiVpDebugger } from "./index.js";
 import { PresentationRequestURLParser } from "./validators/index.js";
+import { CertificateManager } from "./security/CertificateManager.js";
+import { TrustListManager } from "./security/TrustListManager.js";
+
+/**
+ * Initialize runtime (call once on application startup)
+ * Sets up certificate infrastructure and trust list for wallet simulator
+ */
+export async function initializeRuntime(): Promise<void> {
+  const certManager = CertificateManager.getInstance();
+  await certManager.initialize();
+  console.log("[Runtime] Certificate infrastructure initialized");
+
+  const trustListManager = TrustListManager.getInstance();
+  await trustListManager.initialize();
+  console.log("[Runtime] Trust list initialized");
+}
 
 /**
  * Create a configured EudiVpDebugger instance

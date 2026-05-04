@@ -113,4 +113,6 @@ export { WalletSimulator } from "./simulator/index.js";
 export { ExplainabilityEngine } from "./explainability/index.js";
 
 // Re-export runtime utilities for centralized instantiation
-export { createDebugger, createURLParser, type RuntimeConfig } from "./runtime.js";
+export { createDebugger, createURLParser, initializeRuntime, type RuntimeConfig } from "./runtime.js";
+export { CertificateManager } from "./security/CertificateManager.js";
+export { TrustListManager, type RegistrarCertificate, type AccessCertificateValidationResult } from "./security/TrustListManager.js";

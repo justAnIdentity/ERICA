@@ -5,6 +5,7 @@
  */
 
 import * as jose from "jose";
+import { webcrypto as crypto } from "node:crypto";
 import { HOLDER_KEY } from "./TestKeys.js";
 import {
   AuthorizationRequest,
@@ -16,6 +17,12 @@ import WalletSimulatorOrchestrator, {
   OrchestrationResult,
 } from "./WalletSimulatorOrchestrator.js";
 import { DCQLCredential } from "./CredentialMatcher.js";
+import { TrustListManager } from "../security/TrustListManager.js";
+
+// Ensure jose has access to Node.js crypto
+if (!globalThis.crypto) {
+  (globalThis as any).crypto = crypto;
+}
 
 export interface WalletSimulatorOptions {
   mode: SimulationMode;
@@ -52,6 +59,9 @@ export class WalletSimulator implements IWalletSimulator {
     request: AuthorizationRequest,
     options: WalletSimulatorOptions
   ): Promise<PresentationResponse> {
+    // Validate verifier certificate if present in verifier_info
+    await this.validateVerifierCertificate(request);
+
     // Extract DCQL credentials from request
     const dcqlCredentials = this.extractDCQLCredentials(request, options.preferredFormat || "dc+sd-jwt");
 
@@ -300,8 +310,13 @@ export class WalletSimulator implements IWalletSimulator {
       console.log(`[WalletSimulator] Response encrypted successfully`);
       return jwe;
     } catch (error) {
-      console.error("[WalletSimulator] Encryption failed:", error);
-      throw error;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const clientMetadata = (request as any).client_metadata;
+      const dcqlQuery = (request as any).dcql_query;
+      console.error("[WalletSimulator] Encryption failed:", errorMsg);
+      console.error("[WalletSimulator] Request had dcql_query:", JSON.stringify(dcqlQuery, null, 2));
+      console.error("[WalletSimulator] Client metadata available:", !!clientMetadata?.jwks?.keys?.length);
+      throw new Error(`Failed to encrypt response: ${errorMsg}. Check that client_metadata contains ECDH-ES key.`);
     }
   }
 
@@ -369,11 +384,57 @@ export class WalletSimulator implements IWalletSimulator {
         statusCode: fetchResponse.status,
       };
     } catch (error) {
-      console.error(`[WalletSimulator] POST error:`, error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      const dcqlQuery = (request as any).dcql_query;
+      console.error(`[WalletSimulator] POST error:`, errorMsg);
+      console.error(`[WalletSimulator] Failed while processing dcql_query:`, JSON.stringify(dcqlQuery, null, 2));
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: `POST failed: ${errorMsg}. Ensure credentials match the requested claims.`,
       };
+    }
+  }
+
+  /**
+   * Validate verifier certificate from verifier_info
+   * Checks if the Access Certificate is signed by a trusted Registrar
+   */
+  private async validateVerifierCertificate(request: AuthorizationRequest): Promise<void> {
+    const verifierInfo = (request as any).verifier_info;
+
+    // If no verifier_info, skip validation
+    if (!verifierInfo) {
+      console.log("[WalletSimulator] No verifier_info present, skipping certificate validation");
+      return;
+    }
+
+    // Check for x5c in verifier_info (expecting single Access Certificate)
+    const x5c = verifierInfo.x5c;
+    if (!x5c || !Array.isArray(x5c) || x5c.length === 0) {
+      console.log("[WalletSimulator] No x5c certificate in verifier_info, skipping certificate validation");
+      return;
+    }
+
+    console.log("[WalletSimulator] Validating Access Certificate");
+
+    // Extract Access Certificate (always the first/only certificate)
+    const accessCertB64 = x5c[0];
+
+    // Validate Access Certificate using trust list
+    const trustListManager = TrustListManager.getInstance();
+    const validationResult = await trustListManager.validateAccessCertificate(accessCertB64);
+
+    if (!validationResult.valid) {
+      console.warn("[WalletSimulator] Access Certificate validation failed:", validationResult.errors);
+      // Note: In production, wallet might reject the request here
+      // For debugging/demo purposes, we just log warnings
+    } else if (!validationResult.trusted) {
+      console.warn("[WalletSimulator] Access Certificate is valid but not trusted by any Registrar:", validationResult.errors);
+      // Wallet would typically show user a warning that verifier is not in trust list
+    } else if (validationResult.expired) {
+      console.warn("[WalletSimulator] Access Certificate has expired");
+    } else {
+      console.log(`[WalletSimulator] ✓ Access Certificate validated and trusted: ${validationResult.registrar?.organization}`);
     }
   }
 }

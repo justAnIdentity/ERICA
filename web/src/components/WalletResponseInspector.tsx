@@ -54,6 +54,7 @@ export const WalletResponseInspector: React.FC<WalletResponseInspectorProps> = (
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(["overview"])
   );
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections);
@@ -65,8 +66,10 @@ export const WalletResponseInspector: React.FC<WalletResponseInspectorProps> = (
     setExpandedSections(newExpanded);
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
 
   // Get VP tokens as array
@@ -186,10 +189,10 @@ export const WalletResponseInspector: React.FC<WalletResponseInspectorProps> = (
                     {id || `Token ${idx + 1}`}
                   </span>
                   <button
-                    onClick={() => copyToClipboard(token)}
-                    className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                    onClick={() => copyToClipboard(token, idx)}
+                    className="text-xs px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition font-medium"
                   >
-                    📋 Copy
+                    {copiedIndex === idx ? "Copied!" : "Copy"}
                   </button>
                 </div>
                 <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto font-mono break-all whitespace-pre-wrap">

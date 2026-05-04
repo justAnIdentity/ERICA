@@ -1,86 +1,75 @@
 # ERICA Deployment Guide
 
-This guide covers how to build, run, and deploy ERICA (EUDI Relying Party Integration Conformance Analyzer) using Docker.
+This guide covers how to build and run ERICA (EUDI Relying Party Integration Compliance Analyzer) using Docker.
 
 ## Overview
 
 ERICA is containerized as a single Docker service that includes:
-- **Core TypeScript logic** - Validation and simulation
-- **Express API** - REST endpoints for debugging
-- **React Web UI** - Dashboard and debugger interface
+- Core TypeScript logic (validation and simulation)
+- Express API (REST endpoints)
+- React Web UI (dashboard interface)
 
-All components run together in one container for simplicity.
+All components run together in one container.
 
 ## Prerequisites
 
 - Docker 20.10+ or Docker Desktop
 - Docker Compose 2.0+ (included with Docker Desktop)
-- 2GB free disk space minimum
+- 2GB free disk space
 - 512MB RAM minimum (1GB recommended)
 
 ## Quick Start
 
-### Development
+### Using Docker Compose
 
-1. **Clone and navigate to the project**:
+1. Clone and navigate to the project:
    ```bash
    git clone https://github.com/yourusername/eudi-vp-debugger.git
    cd eudi-vp-debugger
    ```
 
-2. **Create environment file** (optional - uses defaults):
+2. Create environment file (optional):
    ```bash
    cp .env.example .env
    ```
 
-3. **Start with Docker Compose**:
+3. Start with Docker Compose:
    ```bash
    docker-compose up
    ```
 
-   The first build may take 2-3 minutes. You'll see:
+   First build takes 2-3 minutes. You'll see:
    ```
-   ✓ EUDI VP Debugger API running on http://localhost:3001
-   ✓ Web UI available at http://localhost:3000
+   EUDI VP Debugger API running on http://localhost:3001
+   Web UI available at http://localhost:3000
    ```
 
-4. **Access the application**:
+4. Access the application:
    - Web UI: http://localhost:3000
    - API Health: http://localhost:3001/health
 
-5. **Stop the container**:
+5. Stop the container:
    ```bash
    docker-compose down
    ```
 
-### Production
+### Using Docker directly
 
-1. **Build the image**:
-   ```bash
-   docker build -t erica:latest .
-   ```
+```bash
+# Build
+docker build -t erica:latest .
 
-2. **Run the container**:
-   ```bash
-   docker run -d \
-     -p 3001:3001 \
-     -p 3000:3000 \
-     -e NODE_ENV=production \
-     -e API_BASE_URL=https://yourdomain.com \
-     --name erica \
-     erica:latest
-   ```
+# Run
+docker run -d \
+  -p 3001:3001 \
+  -p 3000:3000 \
+  --name erica \
+  erica:latest
 
-3. **Verify it's running**:
-   ```bash
-   docker ps | grep erica
-   ```
-
-4. **Check health**:
-   ```bash
-   curl http://localhost:3001/health
-   # Expected: {"status":"ok"}
-   ```
+# Verify
+docker ps | grep erica
+curl http://localhost:3001/health
+```
 
 ## Configuration
 
@@ -96,24 +85,27 @@ All components run together in one container for simplicity.
 
 ### Custom Configuration
 
-1. **Edit `.env` file**:
+1. Edit `.env` file:
    ```bash
    cp .env.example .env
-   # Edit .env with your values
    nano .env
    ```
 
-2. **Restart container**:
+2. Restart container:
    ```bash
    docker-compose down
    docker-compose up
    ```
 
-## Docker Compose Customization
+## Development Setup
 
-### Development with Live Reload
+### With Docker (recommended)
 
-Uncomment the volumes section in `docker-compose.yml` to enable hot-reload:
+```bash
+docker-compose up
+```
+
+For hot-reload, uncomment volumes in `docker-compose.yml`:
 
 ```yaml
 volumes:
@@ -122,38 +114,32 @@ volumes:
   - ./web/src:/app/web/src
 ```
 
-Then rebuild while running:
-```bash
-docker-compose up
-npm run dev:core  # In another terminal, or rebuild the container
-```
-
-### Custom Port Mapping
+### Without Docker (faster iteration)
 
 ```bash
-docker-compose -f docker-compose.yml -e PORT=8001 -e WEB_PORT=8000 up
-```
+# Terminal 1: Build and watch core
+npm run build:core && npm run dev:core
 
-Or edit `docker-compose.yml`:
-```yaml
-ports:
-  - "8001:3001"  # Custom API port
-  - "8000:3000"  # Custom web port
+# Terminal 2: API server
+cd api && npm run dev
+
+# Terminal 3: Web UI
+cd web && npm run dev
 ```
 
 ## Troubleshooting
 
 ### Container won't start
 
-**Check logs**:
+Check logs:
 ```bash
 docker-compose logs erica
 ```
 
-**Common issues**:
-- Port already in use: `docker-compose down` any existing containers
+Common issues:
+- Port already in use: `docker-compose down`
 - Out of disk space: `docker system prune`
-- Build errors: Try `docker-compose up --build`
+- Build errors: `docker-compose up --build`
 
 ### API not responding
 
@@ -172,97 +158,13 @@ docker-compose logs -f erica
 
 - Check `API_BASE_URL` in `.env` matches your deployment
 - In development: Use `http://localhost:3001` (not `127.0.0.1`)
-- In production: Use full domain `https://yourdomain.com`
+- Check API is running on expected port
 
 ### Performance is slow
 
 - Check available memory: `docker stats`
 - Allocate more memory to Docker Desktop (Settings → Resources)
 - Check disk space: `docker system df`
-
-## Deployment Platforms
-
-### Docker Hub
-
-1. **Build and tag**:
-   ```bash
-   docker build -t yourusername/erica:latest .
-   ```
-
-2. **Push**:
-   ```bash
-   docker login
-   docker push yourusername/erica:latest
-   ```
-
-3. **Pull and run**:
-   ```bash
-   docker run -p 3001:3001 yourusername/erica:latest
-   ```
-
-### AWS ECS
-
-```bash
-# Create repository
-aws ecr create-repository --repository-name erica --region us-east-1
-
-# Build and tag for ECR
-docker tag erica:latest 123456789.dkr.ecr.us-east-1.amazonaws.com/erica:latest
-
-# Push to ECR
-docker push 123456789.dkr.ecr.us-east-1.amazonaws.com/erica:latest
-
-# Create ECS task definition pointing to your ECR image
-```
-
-### Kubernetes
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: erica
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: erica
-  template:
-    metadata:
-      labels:
-        app: erica
-    spec:
-      containers:
-      - name: erica
-        image: yourusername/erica:latest
-        ports:
-        - containerPort: 3001
-        - containerPort: 3000
-        env:
-        - name: NODE_ENV
-          value: production
-        - name: API_BASE_URL
-          value: https://yourdomain.com
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 3001
-          initialDelaySeconds: 10
-          periodSeconds: 30
-```
-
-### Heroku
-
-```bash
-# Create app
-heroku create your-app-name
-
-# Set buildpack
-heroku buildpacks:add heroku/dockerfile
-
-# Deploy
-git push heroku main
-```
 
 ## Health Checks
 
@@ -273,11 +175,7 @@ curl http://localhost:3001/health
 # Response: {"status":"ok"}
 ```
 
-This can be used by orchestration platforms (Docker, Kubernetes, etc.) to monitor and restart unhealthy containers.
-
 ## Logs
-
-### View logs
 
 ```bash
 # Follow logs in real-time
@@ -290,79 +188,22 @@ docker-compose logs --tail=100 erica
 docker-compose logs --since 5m erica
 ```
 
-### Structured logging
-
-Logs are formatted as JSON for easy parsing:
-
-```bash
-docker-compose logs erica | jq '.message' # Extract message field
-```
-
-## Security Considerations
-
-- **Non-root user**: Container runs as `nodejs` user (UID 1001)
-- **Health checks**: Automatically restart unhealthy containers
-- **HTTPS**: In production, use a reverse proxy (nginx, CloudFlare) to enforce HTTPS
-- **Request validation**: Always validate request URIs from external sources
-
 ## Cleanup
 
-### Remove container
-
 ```bash
+# Remove container
 docker-compose down
-```
 
-### Remove image
-
-```bash
+# Remove image
 docker rmi erica:latest
-```
 
-### Clean up all Docker resources
-
-```bash
+# Clean up all Docker resources
 docker system prune -a
 ```
 
-## Development
+## Security Notes
 
-### Rebuild on source changes
-
-```bash
-docker-compose up --build
-```
-
-### Interactive debugging
-
-```bash
-# Start with bash shell
-docker run -it erica:latest /bin/sh
-
-# Or attach to running container
-docker exec -it erica /bin/sh
-```
-
-### Development without Docker
-
-For faster iteration during development, you can run locally:
-
-```bash
-# Terminal 1: Build and watch core
-npm run build:core && npm run dev:core
-
-# Terminal 2: API server
-cd api && npm run dev
-
-# Terminal 3: Web UI
-cd web && npm run dev
-```
-
-## Support
-
-For issues or questions:
-
-1. Check [Troubleshooting](#troubleshooting) section
-2. Review [GitHub Issues](https://github.com/yourusername/eudi-vp-debugger/issues)
-3. Check [README.md](../README.md) for general project info
-
+- Container runs as non-root user (nodejs, UID 1001)
+- All certificates and keys are test-only and publicly committed
+- Never use this tool with real personal data
+- This is a development/testing tool, not for production use

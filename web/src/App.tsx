@@ -36,20 +36,13 @@ export const App: React.FC = () => {
       {/* Header */}
       <header className="bg-gradient-to-r from-emerald-50/95 via-teal-50/95 to-cyan-50/95 backdrop-blur-sm border-b border-emerald-200/50 py-6 shadow-lg sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center shadow-lg">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                ERICA
-              </h1>
-              <p className="text-gray-700 mt-0.5 text-sm">
-                EUDI Relying Party Integration Conformance Analyzer – Debug OpenID4VP Presentation Requests and Responses
-              </p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent">
+              ERICA
+            </h1>
+            <p className="text-gray-700 mt-0.5 text-sm">
+              EUDI Relying Party Integration Conformance Analyzer – Debug OpenID4VP Presentation Requests and Responses
+            </p>
           </div>
         </div>
       </header>

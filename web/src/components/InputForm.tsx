@@ -202,6 +202,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
   const [validateOnly, setValidateOnly] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [urlParseInfo, setUrlParseInfo] = useState<string | null>(null);
+  const [urlCopied, setUrlCopied] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,6 +211,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
 
     try {
       let request;
+      let urlParsingChecks: any[] = [];
 
       if (inputMode === 'url') {
         // Parse URL first
@@ -223,11 +225,12 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
 
         const parseResult = parseResponse.data.data;
         request = parseResult.request;
+        urlParsingChecks = parseResult.checks || [];
 
         // Show URL parse info
         const urlType = parseResult.urlType || 'unknown';
-        const checksCount = parseResult.checks?.length || 0;
-        const passedChecks = parseResult.checks?.filter((c: any) => c.passed).length || 0;
+        const checksCount = urlParsingChecks.length;
+        const passedChecks = urlParsingChecks.filter((c: any) => c.passed).length;
         setUrlParseInfo(`✓ URL parsed (${urlType} format) - ${passedChecks}/${checksCount} checks passed`);
 
         // Update JSON view with parsed request
@@ -243,6 +246,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
         pidTemplate,
         postResponseToUri: inputMode === 'url' && !validateOnly,
         preferredFormat,
+        urlParsingChecks,
       });
 
       if (response.data.success) {
@@ -267,6 +271,25 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
+      {/* Security Warning Banner */}
+      <div className="mb-6 bg-amber-50 border-l-4 border-amber-400 p-4 rounded">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-amber-800">
+              Test Environment Only
+            </h3>
+            <div className="mt-2 text-sm text-amber-700">
+              <p>All credentials and certificates are <strong>fake and for testing purposes only</strong>. Do not use this tool with real personal data or in production environments.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Input Mode Toggle */}
         <div>
@@ -308,41 +331,35 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
               <label htmlFor="request-url" className="block text-sm font-medium text-gray-700 mb-2">
                 Paste your authorization URL
               </label>
-              <input
-                id="request-url"
-                type="text"
-                value={requestUrl}
-                onChange={(e) => setRequestUrl(e.target.value)}
-                className="w-full font-mono text-sm p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                placeholder="openid4vp://... or https://..."
-              />
+              <div className="relative">
+                <input
+                  id="request-url"
+                  type="text"
+                  value={requestUrl}
+                  onChange={(e) => setRequestUrl(e.target.value)}
+                  className="w-full font-mono text-sm p-3 pr-20 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                  placeholder="openid4vp://... or https://..."
+                />
+                {requestUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(requestUrl);
+                      setUrlCopied(true);
+                      setTimeout(() => setUrlCopied(false), 2000);
+                    }}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition font-medium"
+                  >
+                    {urlCopied ? "Copied!" : "Copy"}
+                  </button>
+                )}
+              </div>
               <div className="suggestion-box mt-2">
                 <div className="suggestion-box__icon">ℹ</div>
                 <div className="suggestion-box__content">
                   <p className="text-xs text-gray-600">
                     Get this from your QR code scanner, deep link handler, or web redirect.
                     ERICA will extract and validate the request parameters automatically.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Validate Only Checkbox */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <input
-                  id="validate-only"
-                  type="checkbox"
-                  checked={validateOnly}
-                  onChange={(e) => setValidateOnly(e.target.checked)}
-                  className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <div className="flex-1">
-                  <label htmlFor="validate-only" className="text-sm font-medium text-gray-900 cursor-pointer block">
-                    Only validate request (don't POST response back)
-                  </label>
-                  <p className="text-xs text-gray-600 mt-1">
-                    When unchecked, ERICA will simulate a complete wallet flow and POST the VP token to your response_uri (recommended for full integration testing).
                   </p>
                 </div>
               </div>
@@ -366,124 +383,126 @@ export const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => 
           </div>
         )}
 
-        {/* Advanced Options - Collapsible */}
+        {/* Wallet Simulation Settings */}
+        <div className="space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
+          <div>
+            <label htmlFor="simulation-mode" className="block text-sm font-medium text-gray-900 mb-2">
+              Wallet Simulation Mode
+            </label>
+            <select
+              id="simulation-mode"
+              value={simulationMode}
+              onChange={(e) => setSimulationMode(e.target.value as SimulationMode)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+            >
+              <optgroup label="Compliant">
+                <option value={SimulationMode.VALID}>Valid / Compliant Wallet</option>
+              </optgroup>
+              <optgroup label="Credential Validity">
+                <option value={SimulationMode.EXPIRED}>Expired Credential</option>
+                <option value={SimulationMode.NOT_YET_VALID}>Not-Yet-Valid</option>
+              </optgroup>
+              <optgroup label="Signature Issues">
+                <option value={SimulationMode.INVALID_SIGNATURE}>Invalid Signature</option>
+                <option value={SimulationMode.MISSING_SIGNATURE}>Missing Signature</option>
+              </optgroup>
+              <optgroup label="Claim Issues">
+                <option value={SimulationMode.MISSING_CLAIMS}>Missing Claims</option>
+                <option value={SimulationMode.OVER_DISCLOSURE}>Over-Disclosure</option>
+              </optgroup>
+              <optgroup label="Binding Issues">
+                <option value={SimulationMode.WRONG_NONCE}>Wrong Nonce</option>
+                <option value={SimulationMode.MISSING_HOLDER_BINDING}>Missing Holder Binding</option>
+                <option value={SimulationMode.WRONG_AUDIENCE}>Wrong Audience</option>
+              </optgroup>
+            </select>
+            <p className="text-xs text-gray-600 mt-1">
+              Test how your RP handles different wallet behaviors and error conditions
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="profile" className="block text-sm font-medium text-gray-700 mb-2">
+                Validation Profile
+              </label>
+              <select
+                id="profile"
+                value={profile}
+                onChange={(e) => setProfile(e.target.value as Profile)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+              >
+                <option value={Profile.PID_PRESENTATION}>PID Presentation (EUDI)</option>
+                <option value={Profile.BASE_OPENID4VP}>OpenID4VP Base</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="pid-template" className="block text-sm font-medium text-gray-700 mb-2">
+                PID Template
+              </label>
+              <select
+                id="pid-template"
+                value={pidTemplate}
+                onChange={(e) => setPidTemplate(e.target.value as PIDTemplate)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+              >
+                <option value={PIDTemplate.NORMAL}>Normal</option>
+                <option value={PIDTemplate.SPECIAL_CHARACTERS}>Special Characters</option>
+                <option value={PIDTemplate.INCOMPLETE_BIRTHDATE}>Incomplete Birthdate</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="preferred-format" className="block text-sm font-medium text-gray-700 mb-2">
+                Credential Format
+              </label>
+              <select
+                id="preferred-format"
+                value={preferredFormat}
+                onChange={(e) => setPreferredFormat(e.target.value as 'dc+sd-jwt' | 'mso_mdoc')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+              >
+                <option value="dc+sd-jwt">SD-JWT</option>
+                <option value="mso_mdoc">mDoc</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Options - Collapsible */}
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 transition flex items-center justify-between text-left"
           >
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900 text-sm">Advanced Options</span>
-              <span className="text-xs text-gray-500">(Profile, Simulation Mode, Format)</span>
-            </div>
+            <span className="font-medium text-gray-900 text-sm">Additional Options</span>
             <span className={`text-gray-500 transition transform ${showAdvanced ? 'rotate-180' : ''}`}>
               ▼
             </span>
           </button>
 
           {showAdvanced && (
-            <div className="p-4 border-t border-gray-200 bg-white space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="profile" className="block text-sm font-medium text-gray-700 mb-2">
-                    Validation Profile
-                  </label>
-                  <select
-                    id="profile"
-                    value={profile}
-                    onChange={(e) => setProfile(e.target.value as Profile)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                  >
-                    <option value={Profile.PID_PRESENTATION}>PID Presentation (EUDI)</option>
-                    <option value={Profile.BASE_OPENID4VP}>OpenID4VP Base</option>
-                  </select>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Default: PID Presentation for German EUDI ecosystem
-                  </p>
+            <div className="p-4 border-t border-gray-200 bg-white">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <input
+                    id="validate-only-advanced"
+                    type="checkbox"
+                    checked={validateOnly}
+                    onChange={(e) => setValidateOnly(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="validate-only-advanced" className="text-sm font-medium text-gray-900 cursor-pointer block">
+                      Only validate request (don't POST response back)
+                    </label>
+                    <p className="text-xs text-gray-600 mt-1">
+                      When unchecked, ERICA will simulate a complete wallet flow and POST the VP token to your response_uri (recommended for full integration testing).
+                    </p>
+                  </div>
                 </div>
-
-                <div>
-                  <label htmlFor="simulation-mode" className="block text-sm font-medium text-gray-700 mb-2">
-                    Wallet Behavior / Simulation Mode
-                  </label>
-                  <select
-                    id="simulation-mode"
-                    value={simulationMode}
-                    onChange={(e) => setSimulationMode(e.target.value as SimulationMode)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                  >
-                    <optgroup label="Compliant">
-                      <option value={SimulationMode.VALID}>✓ Valid / Compliant Wallet</option>
-                    </optgroup>
-                    <optgroup label="Credential Validity">
-                      <option value={SimulationMode.EXPIRED}>Expired Credential (exp in past)</option>
-                      <option value={SimulationMode.NOT_YET_VALID}>Not-Yet-Valid (nbf in future)</option>
-                    </optgroup>
-                    <optgroup label="Signature Issues">
-                      <option value={SimulationMode.INVALID_SIGNATURE}>Invalid Signature</option>
-                      <option value={SimulationMode.MISSING_SIGNATURE}>Missing Signature</option>
-                    </optgroup>
-                    <optgroup label="Claim Issues">
-                      <option value={SimulationMode.MISSING_CLAIMS}>Missing Claims</option>
-                      <option value={SimulationMode.OVER_DISCLOSURE}>Over-Disclosure</option>
-                      <option value={SimulationMode.MODIFIED_CLAIMS}>Modified Claims</option>
-                    </optgroup>
-                    <optgroup label="Binding Issues">
-                      <option value={SimulationMode.WRONG_NONCE}>Wrong Nonce</option>
-                      <option value={SimulationMode.MISSING_HOLDER_BINDING}>Missing Holder Binding</option>
-                      <option value={SimulationMode.WRONG_AUDIENCE}>Wrong Audience</option>
-                    </optgroup>
-                    <optgroup label="Format Issues">
-                      <option value={SimulationMode.FORMAT_MISMATCH}>Format Mismatch</option>
-                      <option value={SimulationMode.MALFORMED_SD_JWT}>Malformed SD-JWT</option>
-                    </optgroup>
-                    <optgroup label="Issuer Issues">
-                      <option value={SimulationMode.WRONG_ISSUER}>Wrong Issuer</option>
-                      <option value={SimulationMode.WRONG_CREDENTIAL_TYPE}>Wrong Credential Type</option>
-                    </optgroup>
-                  </select>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Test how your RP handles different wallet behaviors and error conditions
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="pid-template" className="block text-sm font-medium text-gray-700 mb-2">
-                  PID Template / Data Variant
-                </label>
-                <select
-                  id="pid-template"
-                  value={pidTemplate}
-                  onChange={(e) => setPidTemplate(e.target.value as PIDTemplate)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value={PIDTemplate.NORMAL}>📄 Normal (standard German names)</option>
-                  <option value={PIDTemplate.SPECIAL_CHARACTERS}>✎ Special Characters (ß, ü, ö, ñ, etc.)</option>
-                  <option value={PIDTemplate.INCOMPLETE_BIRTHDATE}>⚠ Incomplete Birthdate (invalid format)</option>
-                </select>
-                <p className="text-xs text-gray-600 mt-1">
-                  Choose different PID data variants to test edge cases and special character handling
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="preferred-format" className="block text-sm font-medium text-gray-700 mb-2">
-                  Preferred Credential Format
-                </label>
-                <select
-                  id="preferred-format"
-                  value={preferredFormat}
-                  onChange={(e) => setPreferredFormat(e.target.value as 'dc+sd-jwt' | 'mso_mdoc')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="dc+sd-jwt">📄 SD-JWT (dc+sd-jwt) - Recommended</option>
-                  <option value="mso_mdoc">📱 Mobile Document (mso_mdoc)</option>
-                </select>
-                <p className="text-xs text-gray-600 mt-1">
-                  When your request supports multiple formats, the wallet will prefer this one.
-                </p>
               </div>
             </div>
           )}
